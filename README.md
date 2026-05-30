@@ -1,6 +1,5 @@
-# e_api_get_kanougaku_shinyou_tel.py
+# e_api_get_kanougaku_shinyou_pki.py
 電話認証対応　信用新規建可能額の取得
-
 
 ご注意！！ ================================
 
@@ -12,17 +11,17 @@
 
 １）動作テストを実行した環境
 
-	APIバージョン： v4r7
-	python:3.11.2 / os:debian12
+	Python 3.13.5 / debian13 
+	APIバージョン： v4r9
 
 ２）事前に立花証券ｅ支店に口座開設が必要です。
 
 ３）必要な場合、利用時に変数を設定してください。
 
-４)実行は、設定ファイルや「e_api_login_tel.py」と同じディレクトリで実行してください。
-	
+４)実行は設定ファイルや「e_api_login_pkcs12.py」と同じディレクトリで実行してください。
+
 	事前に
-	電話認証 ＋ ３分以内に e_api_login_tel.py を実行
+	e_api_login_pkcs12.py を実行
 	で、仮想URL（１日券）を取得しておいてください。
 
 ５）実行内容は、以下になります。
