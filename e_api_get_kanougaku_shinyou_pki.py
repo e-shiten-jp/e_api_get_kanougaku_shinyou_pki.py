@@ -28,35 +28,33 @@
 import urllib3
 import datetime
 import json
-import os
-
-# =========================================================================
-# --- 設定項目（定数定義：セットアップマニュアルに完全準拠） ---
-# =========================================================================
-FNAME_URL_INFO = "file_url_info.txt"                # API接続情報ファイル
-FNAME_LOGIN_RESPONSE = "./.pki/file_login_response.txt"  # ログイン応答保存先
-FNAME_INFO_P_NO = "file_info_p_no.txt"              # p_no保存ファイル
-FNAME_PASSWD2 = "./.pki/file_pwd2.txt"              # p_no保存ファイル
-
-# =========================================================================
+import time
 
 
 #--- 共通コード ------------------------------------------------------
 
+# request項目を保存するクラス。配列として使う。
+class class_req :
+    def __init__(self) :
+        self.str_key = ''
+        self.str_value = ''
+        
+    def add_data(self, work_key, work_value) :
+        self.str_key = func_check_json_dquat(work_key)
+        self.str_value = func_check_json_dquat(work_value)
+
+
 # 口座属性クラス
-class ClassDefAccountProperty:
+class class_def_account_property:
     def __init__(self):
-        self.sAuthId = ''           # pki ユーザーID
-        # self.sUserId = ''           # userid
-        ###self.sPassword = ''         # password
+        self.sUserId = ''           # userid
+        self.sPassword = ''         # password
         self.sSecondPassword = ''   # 第2パスワード
         self.sUrl = ''              # 接続先URL
         self.sJsonOfmt = 5          # 返り値の表示形式指定
-
-
-
+        
 # ログイン属性クラス
-class ClassDefLoginProperty:
+class class_def_login_property:
     def __init__(self):
         self.p_no = 0                       # 累積p_no
         self.sJsonOfmt = ''                 # 返り値の表示形式指定
@@ -90,7 +88,7 @@ class ClassDefLoginProperty:
         self.sUpdateInformWebDocument = ''  # 交付書面更新予定日  標準Ｗｅｂの交付書面更新予定日決定後、該当日付を設定。  【注意】参照
         self.sUpdateInformAPISpecFunction = ''  # ｅ支店・ＡＰＩリリース予定日  ｅ支店・ＡＰＩリリース予定日決定後、該当日付を設定。  【注意】参照
 
-
+        
 
 # 機能: システム時刻を"p_sd_date"の書式の文字列で返す。
 # 返値: "p_sd_date"の書式の文字列
@@ -107,6 +105,39 @@ def func_p_sd_date(int_systime):
     str_psddate = str_psddate + '.' + (('000000' + str(int_systime.microsecond))[-6:])[:3]
     return str_psddate
 
+
+# JSONの値の前後にダブルクオーテーションが無い場合付ける。
+def func_check_json_dquat(str_value) :
+    if len(str_value) == 0 :
+        str_value = '""'
+        
+    if not str_value[:1] == '"' :
+        str_value = '"' + str_value
+        
+    if not str_value[-1:] == '"' :
+        str_value = str_value + '"'
+        
+    return str_value
+    
+    
+# 受けたテキストの１文字目と最終文字の「"」を削除
+# 引数：string
+# 返り値：string
+def func_strip_dquot(text):
+    if len(text) > 0:
+        if text[0:1] == '"' :
+            text = text[1:]
+            
+    if len(text) > 0:
+        if text[-1] == '\n':
+            text = text[0:-1]
+        
+    if len(text) > 0:
+        if text[-1:] == '"':
+            text = text[0:-1]
+        
+    return text
+    
 
 
 # 機能: URLエンコード文字の変換
@@ -191,12 +222,10 @@ def func_replace_urlecnode( str_input ):
     return str_encode
 
 
-
 # 機能： ファイルから文字情報を読み込み、その文字列を返す。
 # 戻り値： 文字列
 # 第１引数： ファイル名
 # 備考： json形式のファイルを想定。
-#       'utf_8_sig'を指定することでBOMなどを排除します。
 def func_read_from_file(str_fname):
     str_read = ''
     try:
@@ -210,53 +239,95 @@ def func_read_from_file(str_fname):
     except IOError as e:
         print('ファイルを読み込めません!!! ファイル名：',str_fname)
         print(type(e))
+        raise e
 
+
+
+
+
+# 機能: ファイルに書き込む
+# 引数1: 出力ファイル名
+# 引数2: 出力するデータ
+# 備考:
+def func_write_to_file(str_fname_output, str_data):
+    try:
+        with open(str_fname_output, 'w', encoding = 'utf-8') as fout:
+            fout.write(str_data)
+    except IOError as e:
+        print('ファイルに書き込めません!!!  ファイル名：',str_fname_output)
+        print(type(e))
+
+
+# 機能: class_req型データをjson形式の文字列に変換する。
+# 返値: json形式の文字
+# 第１引数： class_req型データ
+def func_make_json_format(work_class_req):
+    work_key = ''
+    work_value = ''
+    str_json_data =  '{\n\t'
+    for i in range(len(work_class_req)) :
+        work_key = func_strip_dquot(work_class_req[i].str_key)
+        if len(work_key) > 0:
+            if work_key[:1] == 'a' :
+                work_value = work_class_req[i].str_value
+                str_json_data = str_json_data + work_class_req[i].str_key \
+                                    + ':' + func_strip_dquot(work_value) \
+                                    + ',\n\t'
+            else :
+                work_value = func_check_json_dquat(work_class_req[i].str_value)
+                str_json_data = str_json_data + func_check_json_dquat(work_class_req[i].str_key) \
+                                    + ':' + work_value \
+                                    + ',\n\t'
+    str_json_data = str_json_data[:-3] + '\n}'
+    return str_json_data
 
 
 # 機能： API問合せ文字列を作成し返す。
 # 戻り値： api問合せのurl文字列
 # 第１引数： ログインは、Trueをセット。それ以外はFalseをセット。
 # 第2引数： ログインは、APIのurlをセット。それ以外はログインで返された仮想url（'sUrlRequest'等）の値をセット。
-# 第３引数： 要求項目のデータセット。辞書型。
-def func_make_url_request_from_dic(auth_flg, \
+# 第３引数： 要求項目のデータセット。クラスの配列として受取る。
+def func_make_url_request(auth_flg, \
                           url_target, \
-                          work_dic_req) :
+                          work_class_req) :
     str_url = url_target
     if auth_flg == True :   # ログインの場合
         str_url = str_url + 'auth/'
     str_url = str_url + '?'
-    str_url = str_url + json.dumps(work_dic_req, indent=4, ensure_ascii=False)
+    str_url = str_url + func_make_json_format(work_class_req)
     return str_url
 
 
-
 # 機能: API問合せ。通常のrequest,price用。
-# 返値: API応答（string型）
+# 返値: API応答（辞書型）
 # 第１引数： URL文字列。
-# 備考: APIに接続し、requestの文字列を送信し、応答データを返す。
-#       master取得は専用の func_api_req_muster を利用します。
-def func_api_req(str_RequestMethod, str_url): 
+# 備考: APIに接続し、requestの文字列を送信し、応答データを辞書型で返す。
+#       master取得は専用の func_api_req_muster を利用する。
+def func_api_req(str_url): 
     print('送信文字列＝')
     print(str_url)  # 送信する文字列
 
     # APIに接続
     http = urllib3.PoolManager()
-    req = http.request(str_RequestMethod, str_url)
+    req = http.request('GET', str_url)
     print("req.status= ", req.status )
 
-    # 取得したデータを、json.loadsを利用できるようにstr型に変換します。日本語はshift-jis。
+    # 取得したデータを、json.loadsを利用できるようにstr型に変換する。日本語はshift-jis。
     bytes_reqdata = req.data
     str_shiftjis = bytes_reqdata.decode("shift-jis", errors="ignore")
+
     print('返信文字列＝')
     print(str_shiftjis)
 
-    return str_shiftjis
+    # JSON形式の文字列を辞書型で取り出す
+    json_req = json.loads(str_shiftjis)
 
+    return json_req
 
 
 # 機能： アカウント情報をファイルから取得する
 # 引数1: 口座情報を保存したファイル名
-# 引数2: 口座情報（ClassDefAccountProperty型）データ
+# 引数2: 口座情報（class_def_account_property型）データ
 def func_get_url_info(fname, class_account_property):
     str_account_info = func_read_from_file(fname)
     # JSON形式の文字列を辞書型で取り出す
@@ -273,10 +344,9 @@ def func_get_url_info(fname, class_account_property):
     # ブラウザで見や易い形式」且つ「引数項目名称」で応答を返す値指定
 
 
-
 # 機能： ログイン情報をファイルから取得する
-# 引数1: ログイン情報を保存したファイル名（fname_login_response = "e_api_login_response.txt"）
-# 引数2: ログインデータ型（ClassDefLoginProperty型）
+# 引数1: ログイン情報を保存したファイル名（fname_login_response = "file_login_response.txt"）
+# 引数2: ログインデータ型（class_def_login_property型）
 def func_get_login_info(str_fname, class_login_property):
     str_login_respons = func_read_from_file(str_fname)
     dic_login_respons = json.loads(str_login_respons)
@@ -311,35 +381,18 @@ def func_get_login_info(str_fname, class_login_property):
     class_login_property.sUrlEventWebSocket = dic_login_respons.get('sUrlEventWebSocket')    # 仮想URL（EVENT-WebSocket)  注文約定通知（EVENT I/F WebSocket版）仮想URL
     class_login_property.sUpdateInformWebDocument = dic_login_respons.get('sUpdateInformWebDocument')    # 交付書面更新予定日  標準Ｗｅｂの交付書面更新予定日決定後、該当日付を設定。  【注意】参照
     class_login_property.sUpdateInformAPISpecFunction = dic_login_respons.get('sUpdateInformAPISpecFunction')    # ｅ支店・ＡＰＩリリース予定日  ｅ支店・ＡＰＩリリース予定日決定後、該当日付を設定。  【注意】参照
-
-
+    
 
 # 機能： p_noをファイルから取得する
 # 引数1: p_noを保存したファイル名（fname_info_p_no = "e_api_info_p_no.txt"）
-# 引数2: login情報（ClassDefLoginProperty型）データ
+# 引数2: login情報（class_def_login_property型）データ
 def func_get_p_no(fname, class_login_property):
     str_p_no_info = func_read_from_file(fname)
     # JSON形式の文字列を辞書型で取り出す
     json_p_no_info = json.loads(str_p_no_info)
     class_login_property.p_no = int(json_p_no_info.get('p_no'))
-
-
+        
     
-# 機能: ファイルに書き込む
-# 引数1: 出力ファイル名
-# 引数2: 出力するデータ
-# 備考: 保存後にファイルの権限を600に設定します。
-def func_write_to_file(str_fname_output, str_data):
-    try:
-        with open(str_fname_output, 'w', encoding = 'utf-8') as fout:
-            fout.write(str_data)
-        os.chmod(str_fname_output, 0o600)
-    except IOError as e:
-        print('ファイルに書き込めません!!!  ファイル名：',str_fname_output)
-        print(type(e))
-
-
-
 # 機能: p_noを保存するためのjson形式のテキストデータを作成します。
 # 引数1: p_noを保存するファイル名（fname_info_p_no = "e_api_info_p_no.txt"）
 # 引数2: 保存するp_no
@@ -429,14 +482,14 @@ def func_kanougaku_shinyou(int_p_no, class_login_property):
 if __name__ == "__main__":
     
     # --- ファイル名等を設定（実行ファイルと同じディレクトリ） ---------------------------------------
-    fname_url_info = FNAME_URL_INFO
-    fname_login_response = FNAME_LOGIN_RESPONSE
-    fname_info_p_no = FNAME_INFO_P_NO
-    fname_pwd2 = FNAME_PASSWD2
+    fname_url_info = "file_url_info.txt"
+    fname_login_response = "./.pki/file_login_response.txt"
+    fname_info_p_no = "file_info_p_no.txt"
+    fname_pwd2 = "./.pki/file_pwd2.txt"
     # --- 以上ファイル名設定 -------------------------------------------------------------------------
 
-    my_account_property = ClassDefAccountProperty()
-    my_login_property = ClassDefLoginProperty()
+    my_account_property = class_def_account_property()
+    my_login_property = class_def_login_property()
     
     # 接続情報をファイルから読み込む。
     func_get_url_info(fname_url_info, my_account_property)
