@@ -1036,7 +1036,7 @@ if __name__ == "__main__":
     
     # 接続情報をファイルから読み込む。
     func_get_url_info(fname_url_info, my_account_property)
-    my_account_property.sSecondPassword = func_read_from_file(fname_pwd2)
+    my_account_property.sSecondPassword = func_read_from_file(fname_pwd2).strip()
     
     
     # ログイン応答を保存した「file_login_response.txt」から、仮想URLと課税flgを取得
